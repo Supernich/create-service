@@ -158,7 +158,7 @@ replace_placeholders() {
     local security_options=$7
     local restart_policy=$8
     local start_command=$9
-    local stop_command=$10
+    local stop_command=${10}
     
     # Copy template to output file
     cp "$template_file" "$output_file"

@@ -42,22 +42,16 @@ chmod +x create-service.sh
 ./create-service.sh
 ```
 
-## 📝 Step-by-Step Guide
+## Step-by-Step Guide
 
-### 1. Template Selection
-Choose where to get the service template:
-- **Download from GitHub** - Uses your default template URL
-- **Use local template file** - Specify a local template path
-- **Create default template** - Uses built-in template
-
-### 2. Basic Information
-- **Service name** - e.g., `gmod_prophunt`, `minecraft_server`
+### 1. Basic Information
+- **Service name** - e.g., `gmod`, `minecraft`, `cs2`
 - **Description** - What does this service do?
 - **Working directory** - Where the service runs
 - **Username** - User account to run the service
 - **Custom group** - Optional separate group name
 
-### 3. Security Hardening
+### 2. Security Hardening
 Choose which security features to enable:
 
 | Option | Description | When to use |
@@ -67,7 +61,7 @@ Choose which security features to enable:
 | `ProtectSystem=full` | Protects system directories | Most services |
 | `ProtectHome=yes` | Isolates /home and /root | Services without home access |
 
-### 4. Restart Policy
+### 3. Restart Policy
 Select how the service should restart:
 
 | Option | Behavior | Use Case |
@@ -77,7 +71,7 @@ Select how the service should restart:
 | `no` | Never restart | One-time tasks |
 | `on-abnormal` | Restart on abnormal exit | Services with cleanup |
 
-### 5. Screen Integration
+### 4. Screen Integration
 If using screen (recommended for interactive services):
 - **Screen session name** - Identifier for the screen session
 - **Base command** - The actual command to run inside screen
@@ -86,15 +80,27 @@ If using screen (recommended for interactive services):
 Example screen workflow:
 ```bash
 # Start command becomes:
-/usr/bin/screen -dmS gmod_prophunt ./srcds_run -game garrysmod +ip 192.168.1.50 -port 27115
+/usr/bin/screen -dmS gmod ./srcds_run -game garrysmod +ip 127.0.0.1 -port 27015
 
 # Stop command becomes:
-/usr/bin/screen -p 0 -S gmod_prophunt -X eval 'stuff "quit\015"'
+/usr/bin/screen -p 0 -S gmod -X eval 'stuff "quit\015"'
 ```
+
+### 6. Installation
+- **Create symbolic link?** - Links service file to /etc/systemd/system/
+
+- **Reload systemd?** - Applies changes immediately
+
+- **Enable at boot?** - Service starts automatically on system boot
+
+- **Start now?** - Launches the service immediately
 
 ## Useful Commands After Installation
 
 ```bash
+# Create SymLink from file to systemd
+sudo ln -sf SERVICE_FILE_PATH /etc/systemd/system/SERVICE_NAME.service
+
 # Check service status
 sudo systemctl status SERVICE_NAME
 

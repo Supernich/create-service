@@ -79,35 +79,9 @@ prompt_yes_no() {
     done
 }
 
-# Function to prompt for restart policy
-prompt_restart_policy() {
-    echo -e "${YELLOW}Select restart policy:${NC}"
-    echo "1) on-failure - Restart only if service crashes (recommended for game servers)"
-    echo "2) always - Always restart, even if stopped cleanly (use with caution)"
-    echo "3) no - Never restart automatically"
-    echo "4) on-abnormal - Restart on abnormal termination"
-    
-    local choice
-    while true; do
-        read -p "Choose policy [1-4] (1): " choice
-        choice=${choice:-1}
-        case $choice in
-            1) echo "on-failure"; return;;
-            2) echo "always"; return;;
-            3) echo "no"; return;;
-            4) echo "on-abnormal"; return;;
-            *) echo "Please enter 1, 2, 3, or 4";;
-        esac
-    done
-}
-
 # Function to prompt for security options
 prompt_security_options() {
     local security_options=""
-    
-    echo -e "${YELLOW}Security hardening options:${NC}"
-    echo "These options add extra security but may cause issues with some applications."
-    echo ""
     
     if prompt_yes_no "Enable NoNewPrivileges (prevents privilege escalation)?" "y"; then
         security_options="${security_options}NoNewPrivileges=yes\n"
@@ -213,22 +187,6 @@ replace_placeholders() {
     fi
 }
 
-# Function to build screen command
-build_screen_command() {
-    local base_command=$1
-    local screen_name=$2
-    
-    echo "/usr/bin/screen -dmS $screen_name $base_command"
-}
-
-# Function to build screen stop command
-build_screen_stop_command() {
-    local base_command=$1
-    local screen_name=$2
-    
-    echo "/usr/bin/screen -p 0 -S $screen_name -X eval 'stuff \"$base_command\015\"'"
-}
-
 # Check sudo status
 HAS_SUDO=false
 if check_sudo; then
@@ -297,10 +255,28 @@ fi
 
 # Get security options
 echo ""
+echo -e "${YELLOW}Security hardening options:${NC}"
+echo "These options add extra security but may cause issues with some applications."
+echo ""
 SECURITY_OPTIONS=$(prompt_security_options)
 echo ""
 
-RESTART_POLICY=$(prompt_restart_policy)
+echo -e "${YELLOW}Select restart policy:${NC}"
+echo "1) on-failure - Restart only if service crashes (recommended for game servers)"
+echo "2) always - Always restart, even if stopped cleanly (use with caution)"
+echo "3) no - Never restart automatically"
+echo "4) on-abnormal - Restart on abnormal termination"
+while true; do
+    read -p "Choose policy [1-4] (1): " choice
+    choice=${choice:-1}
+    case $choice in
+        1) RESTART_POLICY="on-failure"; return;;
+        2) RESTART_POLICY="always"; return;;
+        3) RESTART_POLICY="no"; return;;
+        4) RESTART_POLICY="on-abnormal"; return;;
+        *) echo "Please enter 1, 2, 3, or 4";;
+    esac
+done
 
 # Ask about screen usage
 echo ""
@@ -310,13 +286,13 @@ if [ "$USE_SCREEN" = true ]; then
     SCREEN_NAME=$(prompt "Screen session name" "$SERVICE_NAME")
     echo -e "${YELLOW}Enter the command to run INSIDE screen (without screen prefix):${NC}"
     BASE_START_COMMAND=$(prompt "Base command" "")
-    START_COMMAND=$(build_screen_command "$BASE_START_COMMAND" "$SCREEN_NAME")
+    START_COMMAND=$("/usr/bin/screen -dmS $SCREEN_NAME $BASE_START_COMMAND")
     
     # For stop command, offer screen-friendly option
     echo ""
     if prompt_yes_no "Use screen-friendly stop command (recommended)?" "y"; then
         BASE_STOP_COMMAND=$(prompt "Base command" "")
-        STOP_COMMAND=$(build_screen_stop_command "$BASE_STOP_COMMAND" "$SCREEN_NAME")
+        STOP_COMMAND=$("/usr/bin/screen -p 0 -S $SCREEN_NAME -X eval 'stuff \"$BASE_STOP_COMMAND\015\"'")
         echo -e "${GREEN}✓${NC} Using screen stop command: $STOP_COMMAND${NC}"
     else
         STOP_COMMAND=$(prompt "Custom stop command (optional)" "")

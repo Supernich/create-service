@@ -101,6 +101,9 @@ Example screen workflow:
 # Create SymLink from file to systemd
 sudo ln -sf SERVICE_FILE_PATH /etc/systemd/system/SERVICE_NAME.service
 
+# Remove SymLink from systemd
+sudo rm /etc/systemd/system/SERVICE_NAME.service
+
 # Check service status
 sudo systemctl status SERVICE_NAME
 

@@ -488,16 +488,23 @@ fi
 echo ""
 echo -e "${GREEN}✓${NC} Service setup complete!${NC}"
 echo ""
-echo -e ${YELLOW}Useful commands:${NC}"
+echo -e "${YELLOW}Useful commands:${NC}"
 echo "  sudo systemctl status $SERVICE_NAME    # Check status"
 echo "  sudo systemctl restart $SERVICE_NAME   # Restart"
 echo "  sudo systemctl stop $SERVICE_NAME      # Stop"
 echo "  sudo journalctl -u $SERVICE_NAME -f    # View logs"
 
-# If stop command was provided, show note
-if [ -n "$STOP_COMMAND" ]; then
-    echo "  Custom stop command will be used: $STOP_COMMAND"
-fi
+echo "  sudo ln -sf $(realpath "$SERVICE_FILE") /etc/systemd/system/$SERVICE_NAME.service # Create SymLink from file to systemd"
+echo "  sudo rm /etc/systemd/system/$SERVICE_NAME.service # Remove SymLink from systemd"
+echo ""
+echo "  sudo systemctl status $SERVICE_NAME # Check service status"
+echo "  sudo journalctl -u $SERVICE_NAME -f # View logs"
+echo ""
+echo "  sudo systemctl ebanble $SERVICE_NAME # Enable service"
+echo "  sudo systemctl disable $SERVICE_NAME # Disable service"
+echo "  sudo systemctl start $SERVICE_NAME # Start service"
+echo "  sudo systemctl restart $SERVICE_NAME # Restart service"
+echo "  sudo systemctl stop $SERVICE_NAME # Stop service"
 
 # If screen is being used, show screen note
 if [ "$USE_SCREEN" = true ]; then

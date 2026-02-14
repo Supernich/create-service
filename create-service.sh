@@ -288,9 +288,8 @@ SERVICE_NAME=$(prompt "Service name" "")
 SERVICE_DESCRIPTION=$(prompt "Description" "Custom service")
 WORKING_DIR=$(prompt "Working directory" "")
 USERNAME=$(prompt "Username" "$USER")
-USE_CUSTOM_GROUP=$(prompt_yes_no "Use custom group (different from username)?" "n")
 
-if [ "$USE_CUSTOM_GROUP" = true ]; then
+if prompt_yes_no "Use custom group (different from username)?" "n"; then
     GROUPNAME=$(prompt "Group name" "$USERNAME")
 else
     GROUPNAME="$USERNAME"

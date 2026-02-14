@@ -171,8 +171,14 @@ replace_placeholders() {
     sed -i "s|__RESTART_POLICY__|$restart_policy|g" "$output_file"
     
     # Handle security options (need to escape newlines for sed)
-    local escaped_security=$(printf '%s\n' "$security_options" | sed 's/[[\.*^$()+?{|]/\\&/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-    sed -i "s|__SECURITY_OPTIONS__|$escaped_security|g" "$output_file"
+    if [ -n "$security_options" ]; then
+        # Escape newlines and special characters for sed
+        local escaped_opts=$(printf '%s\n' "$security_options" | sed 's:[[/.*$^]:\\&:g' | sed ':a;N;$!ba;s/\n/\\n/g')
+        sed -i "s|__SECURITY_OPTIONS__|$escaped_opts|g" "$output_file"
+    else
+        # If no security options, just remove the placeholder
+        sed -i "/__SECURITY_OPTIONS__/d" "$output_file"
+    fi
     
     # Escape slashes in commands for sed
     local escaped_start=$(printf '%s\n' "$start_command" | sed 's/[[\.*^$()+?{|]/\\&/g')
@@ -258,7 +264,35 @@ echo ""
 echo -e "${YELLOW}Security hardening options:${NC}"
 echo "These options add extra security but may cause issues with some applications."
 echo ""
-SECURITY_OPTIONS=$(prompt_security_options)
+SECURITY_OPTIONS=""
+
+if prompt_yes_no "Enable NoNewPrivileges (prevents privilege escalation)?" "y"; then
+    SECURITY_OPTIONS="${SECURITY_OPTIONS}NoNewPrivileges=yes\n"
+    echo -e "${GREEN}  ✓ ${NC}NoNewPrivileges enabled${NC}"
+else
+    echo -e "${YELLOW}  ✗ ${NC}NoNewPrivileges disabled${NC}"
+fi
+
+if prompt_yes_no "Enable PrivateTmp (isolated temporary directory)?" "y"; then
+    SECURITY_OPTIONS="${SECURITY_OPTIONS}PrivateTmp=yes\n"
+    echo -e "${GREEN}  ✓ ${NC}PrivateTmp enabled${NC}"
+else
+    echo -e "${YELLOW}  ✗ ${NC}PrivateTmp disabled${NC}"
+fi
+
+if prompt_yes_no "Enable ProtectSystem=full (protects /usr, /boot, /etc)?" "y"; then
+    SECURITY_OPTIONS="${SECURITY_OPTIONS}ProtectSystem=full\n"
+    echo -e "${GREEN}  ✓ ${NC}ProtectSystem=full enabled${NC}"
+else
+    echo -e "${YELLOW}  ✗ ${NC}ProtectSystem=full disabled${NC}"
+fi
+
+if prompt_yes_no "Enable ProtectHome=yes (isolates /home and /root)?" "y"; then
+    SECURITY_OPTIONS="${SECURITY_OPTIONS}ProtectHome=yes\n"
+    echo -e "${GREEN}  ✓ ${NC}ProtectHome=yes enabled${NC}"
+else
+    echo -e "${YELLOW}  ✗ ${NC}ProtectHome=yes disabled${NC}"
+fi
 echo ""
 
 echo -e "${YELLOW}Select restart policy:${NC}"
@@ -295,11 +329,11 @@ if [ "$USE_SCREEN" = true ]; then
         STOP_COMMAND=$("/usr/bin/screen -p 0 -S $SCREEN_NAME -X eval 'stuff \"$BASE_STOP_COMMAND\015\"'")
         echo -e "${GREEN}✓${NC} Using screen stop command: $STOP_COMMAND${NC}"
     else
-        STOP_COMMAND=$(prompt "Custom stop command (optional)" "")
+        STOP_COMMAND=$(prompt "Custom stop command" "")
     fi
 else
     START_COMMAND=$(prompt "Start command" "")
-    STOP_COMMAND=$(prompt "Stop command (optional)" "")
+    STOP_COMMAND=$(prompt "Stop command" "")
 fi
 
 # Validate working directory

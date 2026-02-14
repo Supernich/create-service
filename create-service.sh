@@ -244,7 +244,7 @@ echo "------------------------------------------------"
 
 SERVICE_NAME=$(prompt "Service name" "")
 SERVICE_DESCRIPTION=$(prompt "Description" "Custom service")
-WORKING_DIR=$(prompt "Working directory" "")
+WORKING_DIR=$(prompt "Working directory" "$(pwd)")
 USERNAME=$(prompt "Username" "$USER")
 
 if prompt_yes_no "Use custom group (different from username)?" "n"; then
@@ -270,10 +270,10 @@ while true; do
     read -p "Choose policy [1-4] (1): " choice
     choice=${choice:-1}
     case $choice in
-        1) RESTART_POLICY="on-failure";;
-        2) RESTART_POLICY="always";;
-        3) RESTART_POLICY="no";;
-        4) RESTART_POLICY="on-abnormal";;
+        1) RESTART_POLICY="on-failure"; break;;
+        2) RESTART_POLICY="always"; break;;
+        3) RESTART_POLICY="no"; break;;
+        4) RESTART_POLICY="on-abnormal"; break;;
         *) echo "Please enter 1, 2, 3, or 4";;
     esac
 done

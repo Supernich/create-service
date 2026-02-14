@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default template URL (change this to your GitHub raw URL)
-DEFAULT_TEMPLATE_URL="https://raw.githubusercontent.com/Supernich/create-service/blob/main/service_template.service"
+DEFAULT_TEMPLATE_URL="https://raw.githubusercontent.com/Supernich/create-service/main/service_template.service"
 
 echo -e "${BLUE}╔══════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     Systemd Service Creator      ║${NC}"

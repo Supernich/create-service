@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default template URL (change this to your GitHub raw URL)
-DEFAULT_TEMPLATE_URL="https://raw.githubusercontent.com/Supernich/YOUR_REPO/create-service/service.template"
+DEFAULT_TEMPLATE_URL="https://raw.githubusercontent.com/Supernich/create-service/blob/main/service_template.service"
 
 echo -e "${BLUE}╔══════════════════════════════════╗${NC}"
 echo -e "${BLUE}║     Systemd Service Creator      ║${NC}"
@@ -179,40 +179,6 @@ download_template() {
     return 1
 }
 
-# Function to create default template (only used for local file option)
-create_default_template() {
-    local template_file=$1
-    
-    echo -e "${YELLOW}Creating default template...${NC}"
-    
-    cat > "$template_file" << 'EOF'
-[Unit]
-Description=__DESCRIPTION__
-After=network.target
-Wants=network.target
-
-[Service]
-WorkingDirectory=__WORKING_DIR__
-
-User=__USERNAME__
-Group=__USERNAME__
-
-__SECURITY_OPTIONS__
-# Restart behavior
-Restart=__RESTART_POLICY__
-RestartSec=30
-
-# Start command
-ExecStart=__START_COMMAND__
-__STOP_COMMAND_LINE__
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    
-    echo -e "${GREEN}✓${NC} Default template created${NC}"
-}
-
 # Function to replace placeholders in template
 replace_placeholders() {
     local template_file=$1
@@ -275,12 +241,6 @@ if check_sudo; then
     HAS_SUDO=true
 fi
 echo ""
-
-# Template source selection
-echo -e "${YELLOW}Template source:${NC}"
-echo "1) Download from GitHub (default)"
-echo "2) Use local template file"
-echo "3) Create default template"
 
 TEMPLATE_FILE=""
 

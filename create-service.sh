@@ -148,37 +148,6 @@ validate_dir() {
     fi
 }
 
-# Function to download template
-download_template() {
-    local template_url=$1
-    local temp_file
-    
-    temp_file=$(mktemp)
-    
-    echo -e "${YELLOW}Downloading template from: $template_url${NC}"
-    
-    if command -v curl &> /dev/null; then
-        if curl -s -f "$template_url" -o "$temp_file"; then
-            echo -e "${GREEN}✓${NC} Template downloaded successfully${NC}"
-            echo "$temp_file"
-            return 0
-        fi
-    elif command -v wget &> /dev/null; then
-        if wget -q "$template_url" -O "$temp_file"; then
-            echo -e "${GREEN}✓${NC} Template downloaded successfully${NC}"
-            echo "$temp_file"
-            return 0
-        fi
-    else
-        echo -e "${RED}✗${NC} Neither curl nor wget found. Please install one.${NC}"
-        exit 1
-    fi
-    
-    echo -e "${RED}✗${NC} Failed to download template from $template_url${NC}"
-    rm -f "$temp_file"
-    return 1
-}
-
 # Function to replace placeholders in template
 replace_placeholders() {
     local template_file=$1
@@ -242,16 +211,41 @@ if check_sudo; then
 fi
 echo ""
 
-TEMPLATE_FILE=""
+# Template download
+echo ""
+echo -e "${YELLOW}Downloading template from GitHub...${NC}"
 
-TEMPLATE_URL=$(prompt "GitHub raw URL" "$DEFAULT_TEMPLATE_URL")
-        TEMP_TEMPLATE=$(download_template "$TEMPLATE_URL")
-        if [ $? -eq 0 ]; then
-            TEMPLATE_FILE="$TEMP_TEMPLATE"
-        else
-            echo -e "${RED}Template download failed. Exiting.${NC}"
-            exit 1
-        fi
+# Create temp file
+TEMP_TEMPLATE=$(mktemp)
+
+# Check for curl or wget installation
+if command -v curl &> /dev/null; then
+    if ! curl -s -f "$DEFAULT_TEMPLATE_URL" -o "$TEMP_TEMPLATE"; then
+        echo -e "${RED}✗${NC} Failed to download template from $DEFAULT_TEMPLATE_URL${NC}"
+        rm -f "$TEMP_TEMPLATE"
+        exit 1
+    fi
+elif command -v wget &> /dev/null; then
+    if ! wget -q "$DEFAULT_TEMPLATE_URL" -O "$TEMP_TEMPLATE"; then
+        echo -e "${RED}✗${NC} Failed to download template from $DEFAULT_TEMPLATE_URL${NC}"
+        rm -f "$TEMP_TEMPLATE"
+        exit 1
+    fi
+else
+    echo -e "${RED}✗${NC} Neither curl nor wget found. Please install one.${NC}"
+    rm -f "$TEMP_TEMPLATE"
+    exit 1
+fi
+
+# Check file not empty
+if [ ! -s "$TEMP_TEMPLATE" ]; then
+    echo -e "${RED}✗${NC} Downloaded template is empty${NC}"
+    rm -f "$TEMP_TEMPLATE"
+    exit 1
+fi
+
+TEMPLATE_FILE="$TEMP_TEMPLATE"
+echo -e "${GREEN}✓${NC} Template downloaded successfully${NC}"
 
 # Show template content
 echo ""

@@ -1,0 +1,22 @@
+[Unit]
+Description=__DESCRIPTION__
+After=network.target
+Wants=network.target
+
+[Service]
+WorkingDirectory=__WORKING_DIR__
+
+User=__USERNAME__
+Group=__GROUPNAME__
+
+__SECURITY_OPTIONS__
+# Restart behavior
+Restart=__RESTART_POLICY__
+RestartSec=30
+
+# Start command
+ExecStart=__START_COMMAND__
+__STOP_COMMAND_LINE__
+
+[Install]
+WantedBy=multi-user.target

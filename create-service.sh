@@ -1,0 +1,523 @@
+#!/bin/bash
+
+# Systemd Service Creator Script with Template Support
+# Usage: ./create-service.sh
+# Creator: https://github.com/Supernich
+# Generated using DeepSeek
+
+set -e  # Exit on error
+
+# Color codes for better readability
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Default template URL (change this to your GitHub raw URL)
+DEFAULT_TEMPLATE_URL="https://raw.githubusercontent.com/Supernich/YOUR_REPO/create-service/service.template"
+
+echo -e "${BLUE}╔══════════════════════════════════╗${NC}"
+echo -e "${BLUE}║     Systemd Service Creator      ║${NC}"
+echo -e "${BLUE}╚══════════════════════════════════╝${NC}"
+echo ""
+
+# Function to prompt for input with default value
+prompt() {
+    local prompt_text=$1
+    local default_value=$2
+    local input
+    
+    if [ -n "$default_value" ]; then
+        read -p "$prompt_text [$default_value]: " input
+        echo "${input:-$default_value}"
+    else
+        read -p "$prompt_text: " input
+        echo "$input"
+    fi
+}
+
+# Function to prompt yes/no with default
+prompt_yes_no() {
+    local prompt_text=$1
+    local default_value=$2
+    local input
+    
+    while true; do
+        read -p "$prompt_text [y/n] ($default_value): " input
+        input=${input:-$default_value}
+        case $input in
+            [Yy]* ) return 0;;
+            [Nn]* ) return 1;;
+            * ) echo "Please answer yes or no.";;
+        esac
+    done
+}
+
+# Function to prompt for restart policy
+prompt_restart_policy() {
+    echo -e "${YELLOW}Select restart policy:${NC}"
+    echo "1) on-failure - Restart only if service crashes (recommended for game servers)"
+    echo "2) always - Always restart, even if stopped cleanly (use with caution)"
+    echo "3) no - Never restart automatically"
+    echo "4) on-abnormal - Restart on abnormal termination"
+    
+    local choice
+    while true; do
+        read -p "Choose policy [1-4] (1): " choice
+        choice=${choice:-1}
+        case $choice in
+            1) echo "on-failure"; return;;
+            2) echo "always"; return;;
+            3) echo "no"; return;;
+            4) echo "on-abnormal"; return;;
+            *) echo "Please enter 1, 2, 3, or 4";;
+        esac
+    done
+}
+
+# Function to prompt for security options
+prompt_security_options() {
+    local security_options=""
+    
+    echo -e "${YELLOW}Security hardening options:${NC}"
+    echo "These options add extra security but may cause issues with some applications."
+    echo ""
+    
+    if prompt_yes_no "Enable NoNewPrivileges (prevents privilege escalation)?" "y"; then
+        security_options="${security_options}NoNewPrivileges=yes\n"
+        echo -e "${GREEN}  ✓ ${NC}NoNewPrivileges enabled${NC}"
+    else
+        echo -e "${YELLOW}  ✗ ${NC}NoNewPrivileges disabled${NC}"
+    fi
+    
+    if prompt_yes_no "Enable PrivateTmp (isolated temporary directory)?" "y"; then
+        security_options="${security_options}PrivateTmp=yes\n"
+        echo -e "${GREEN}  ✓ ${NC}PrivateTmp enabled${NC}"
+    else
+        echo -e "${YELLOW}  ✗ ${NC}PrivateTmp disabled${NC}"
+    fi
+    
+    if prompt_yes_no "Enable ProtectSystem=full (protects /usr, /boot, /etc)?" "y"; then
+        security_options="${security_options}ProtectSystem=full\n"
+        echo -e "${GREEN}  ✓ ${NC}ProtectSystem=full enabled${NC}"
+    else
+        echo -e "${YELLOW}  ✗ ${NC}ProtectSystem=full disabled${NC}"
+    fi
+    
+    if prompt_yes_no "Enable ProtectHome=yes (isolates /home and /root)?" "y"; then
+        security_options="${security_options}ProtectHome=yes\n"
+        echo -e "${GREEN}  ✓ ${NC}ProtectHome=yes enabled${NC}"
+    else
+        echo -e "${YELLOW}  ✗ ${NC}ProtectHome=yes disabled${NC}"
+    fi
+    
+    echo "$security_options"
+}
+
+# Check sudo access
+check_sudo() {
+    if sudo -n true 2>/dev/null; then
+        echo -e "${GREEN}✓${NC} Sudo access available${NC}"
+        return 0
+    else
+        echo -e "${YELLOW}⚠${NC} No passwordless sudo access. Some operations may require password.${NC}"
+        if sudo -v 2>/dev/null; then
+            echo -e "${GREEN}✓${NC} Sudo access granted${NC}"
+            return 0
+        else
+            echo -e "${RED}✗${NC} No sudo access available. Limited functionality.${NC}"
+            return 1
+        fi
+    fi
+}
+
+# Function to validate directory exists
+validate_dir() {
+    local dir=$1
+    
+    if [ ! -d "$dir" ]; then
+        echo -e "${YELLOW}Warning: Directory $dir does not exist.${NC}"
+        if prompt_yes_no "Create it?" "y"; then
+            mkdir -p "$dir"
+            echo -e "${GREEN}✓${NC} Directory created: $dir${NC}"
+        else
+            echo -e "${RED}✗${NC} Directory must exist to continue. Exiting.${NC}"
+            exit 1
+        fi
+    fi
+}
+
+# Function to download template
+download_template() {
+    local template_url=$1
+    local temp_file
+    
+    temp_file=$(mktemp)
+    
+    echo -e "${YELLOW}Downloading template from: $template_url${NC}"
+    
+    if command -v curl &> /dev/null; then
+        if curl -s -f "$template_url" -o "$temp_file"; then
+            echo -e "${GREEN}✓${NC} Template downloaded successfully${NC}"
+            echo "$temp_file"
+            return 0
+        fi
+    elif command -v wget &> /dev/null; then
+        if wget -q "$template_url" -O "$temp_file"; then
+            echo -e "${GREEN}✓${NC} Template downloaded successfully${NC}"
+            echo "$temp_file"
+            return 0
+        fi
+    else
+        echo -e "${RED}✗${NC} Neither curl nor wget found. Please install one.${NC}"
+        exit 1
+    fi
+    
+    echo -e "${RED}✗${NC} Failed to download template from $template_url${NC}"
+    rm -f "$temp_file"
+    return 1
+}
+
+# Function to create default template (only used for local file option)
+create_default_template() {
+    local template_file=$1
+    
+    echo -e "${YELLOW}Creating default template...${NC}"
+    
+    cat > "$template_file" << 'EOF'
+[Unit]
+Description=__DESCRIPTION__
+After=network.target
+Wants=network.target
+
+[Service]
+WorkingDirectory=__WORKING_DIR__
+
+User=__USERNAME__
+Group=__USERNAME__
+
+__SECURITY_OPTIONS__
+# Restart behavior
+Restart=__RESTART_POLICY__
+RestartSec=30
+
+# Start command
+ExecStart=__START_COMMAND__
+__STOP_COMMAND_LINE__
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    echo -e "${GREEN}✓${NC} Default template created${NC}"
+}
+
+# Function to replace placeholders in template
+replace_placeholders() {
+    local template_file=$1
+    local output_file=$2
+    local description=$3
+    local working_dir=$4
+    local username=$5
+    local groupname=$6
+    local security_options=$7
+    local restart_policy=$8
+    local start_command=$9
+    local stop_command=$10
+    
+    # Copy template to output file
+    cp "$template_file" "$output_file"
+    
+    # Replace placeholders
+    sed -i "s|__DESCRIPTION__|$description|g" "$output_file"
+    sed -i "s|__WORKING_DIR__|$working_dir|g" "$output_file"
+    sed -i "s|__USERNAME__|$username|g" "$output_file"
+    sed -i "s|__GROUPNAME__|$groupname|g" "$output_file"
+    sed -i "s|__RESTART_POLICY__|$restart_policy|g" "$output_file"
+    
+    # Handle security options (need to escape newlines for sed)
+    local escaped_security=$(printf '%s\n' "$security_options" | sed 's/[[\.*^$()+?{|]/\\&/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+    sed -i "s|__SECURITY_OPTIONS__|$escaped_security|g" "$output_file"
+    
+    # Escape slashes in commands for sed
+    local escaped_start=$(printf '%s\n' "$start_command" | sed 's/[[\.*^$()+?{|]/\\&/g')
+    sed -i "s|__START_COMMAND__|$escaped_start|g" "$output_file"
+    
+    # Handle stop command
+    if [ -n "$stop_command" ]; then
+        local escaped_stop=$(printf '%s\n' "$stop_command" | sed 's/[[\.*^$()+?{|]/\\&/g')
+        sed -i "s|__STOP_COMMAND_LINE__|ExecStop=$escaped_stop|g" "$output_file"
+    else
+        sed -i "s|__STOP_COMMAND_LINE__||g" "$output_file"
+    fi
+}
+
+# Function to build screen command
+build_screen_command() {
+    local base_command=$1
+    local screen_name=$2
+    
+    echo "/usr/bin/screen -dmS $screen_name $base_command"
+}
+
+# Function to build screen stop command
+build_screen_stop_command() {
+    local base_command=$1
+    local screen_name=$2
+    
+    echo "/usr/bin/screen -p 0 -S $screen_name -X eval 'stuff \"$base_command\015\"'"
+}
+
+# Check sudo status
+HAS_SUDO=false
+if check_sudo; then
+    HAS_SUDO=true
+fi
+echo ""
+
+# Template source selection
+echo -e "${YELLOW}Template source:${NC}"
+echo "1) Download from GitHub (default)"
+echo "2) Use local template file"
+echo "3) Create default template"
+
+TEMPLATE_FILE=""
+
+TEMPLATE_URL=$(prompt "GitHub raw URL" "$DEFAULT_TEMPLATE_URL")
+        TEMP_TEMPLATE=$(download_template "$TEMPLATE_URL")
+        if [ $? -eq 0 ]; then
+            TEMPLATE_FILE="$TEMP_TEMPLATE"
+        else
+            echo -e "${RED}Template download failed. Exiting.${NC}"
+            exit 1
+        fi
+
+# Show template content
+echo ""
+echo -e "${YELLOW}Template content:${NC}"
+echo "------------------------------------------------"
+cat "$TEMPLATE_FILE"
+echo "------------------------------------------------"
+echo ""
+
+# Gather service information
+echo -e "${YELLOW}Please provide the following service information:${NC}"
+echo "------------------------------------------------"
+
+SERVICE_NAME=$(prompt "Service name" "")
+SERVICE_DESCRIPTION=$(prompt "Description" "Custom service")
+WORKING_DIR=$(prompt "Working directory" "")
+USERNAME=$(prompt "Username" "$USER")
+USE_CUSTOM_GROUP=$(prompt_yes_no "Use custom group (different from username)?" "n")
+
+if [ "$USE_CUSTOM_GROUP" = true ]; then
+    GROUPNAME=$(prompt "Group name" "$USERNAME")
+else
+    GROUPNAME="$USERNAME"
+fi
+
+# Get security options
+echo ""
+SECURITY_OPTIONS=$(prompt_security_options)
+echo ""
+
+RESTART_POLICY=$(prompt_restart_policy)
+
+# Ask about screen usage
+echo ""
+USE_SCREEN=$(prompt_yes_no "Use screen to run this service?" "y")
+
+if [ "$USE_SCREEN" = true ]; then
+    SCREEN_NAME=$(prompt "Screen session name" "$SERVICE_NAME")
+    echo -e "${YELLOW}Enter the command to run INSIDE screen (without screen prefix):${NC}"
+    BASE_START_COMMAND=$(prompt "Base command" "")
+    START_COMMAND=$(build_screen_command "$BASE_START_COMMAND" "$SCREEN_NAME")
+    
+    # For stop command, offer screen-friendly option
+    echo ""
+    if prompt_yes_no "Use screen-friendly stop command (recommended)?" "y"; then
+        BASE_STOP_COMMAND=$(prompt "Base command" "")
+        STOP_COMMAND=$(build_screen_stop_command "$BASE_STOP_COMMAND" "$SCREEN_NAME")
+        echo -e "${GREEN}✓${NC} Using screen stop command: $STOP_COMMAND${NC}"
+    else
+        STOP_COMMAND=$(prompt "Custom stop command (optional)" "")
+    fi
+else
+    START_COMMAND=$(prompt "Start command" "")
+    STOP_COMMAND=$(prompt "Stop command (optional)" "")
+fi
+
+# Validate working directory
+validate_dir "$WORKING_DIR"
+
+# Confirm information
+echo ""
+echo -e "${YELLOW}Service configuration:${NC}"
+echo "  Name:          $SERVICE_NAME"
+echo "  Description:   $SERVICE_DESCRIPTION"
+echo "  Working dir:   $WORKING_DIR"
+echo "  User:          $USERNAME"
+echo "  Security:"
+if [ -n "$SECURITY_OPTIONS" ]; then
+    echo "$SECURITY_OPTIONS" | while IFS= read -r line; do
+        if [ -n "$line" ]; then
+            echo "    $line"
+        fi
+    done
+else
+    echo "    No security options enabled"
+fi
+echo "  Restart policy: $RESTART_POLICY"
+if [ "$USE_SCREEN" = true ]; then
+    echo "  Screen:        yes (session: $SCREEN_NAME)"
+fi
+echo "  Start cmd:     $START_COMMAND"
+if [ -n "$STOP_COMMAND" ]; then
+    echo "  Stop cmd:      $STOP_COMMAND"
+else
+    echo "  Stop cmd:      (none - using SIGTERM)"
+fi
+echo ""
+
+if ! prompt_yes_no "Is this correct?" "y"; then
+    echo -e "${RED}Exiting. Please run again.${NC}"
+    # Clean up temp file
+    [ -f "$TEMP_TEMPLATE" ] && rm -f "$TEMP_TEMPLATE"
+    exit 0
+fi
+
+# Ask where to save the service file
+echo ""
+echo -e "${YELLOW}Where should the service file be saved?${NC}"
+SAVE_LOCATION=$(prompt "Save location (press Enter for current directory)" ".")
+
+# Create the service file from template
+SERVICE_FILE="$SAVE_LOCATION/$SERVICE_NAME.service"
+replace_placeholders "$TEMPLATE_FILE" "$SERVICE_FILE" \
+    "$SERVICE_DESCRIPTION" \
+    "$WORKING_DIR" \
+    "$USERNAME" \
+    "$GROUPNAME" \
+    "$SECURITY_OPTIONS" \
+    "$RESTART_POLICY" \
+    "$START_COMMAND" \
+    "$STOP_COMMAND"
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓${NC} Service file created: $SERVICE_FILE${NC}"
+else
+    echo -e "${RED}✗${NC} Failed to create service file${NC}"
+    # Clean up temp file
+    [ -f "$TEMP_TEMPLATE" ] && rm -f "$TEMP_TEMPLATE"
+    exit 1
+fi
+
+# Show the created file
+echo ""
+echo -e "${YELLOW}Created service file content:${NC}"
+echo "------------------------------------------------"
+cat "$SERVICE_FILE"
+echo "------------------------------------------------"
+
+# System-level operations (only if sudo available)
+if [ "$HAS_SUDO" = true ]; then
+    # Ask how to install to systemd
+    echo ""
+    echo -e "${YELLOW}How would you like to install this service to systemd?${NC}"
+    echo "1) Create symbolic link (recommended)"
+    echo "2) Copy file directly"
+    echo "3) Skip installation (just create file)"
+    
+    INSTALL_CHOICE=$(prompt "Choose option [1-3]" "1")
+    
+    case $INSTALL_CHOICE in
+        1)
+            echo -e "${YELLOW}Creating symbolic link...${NC}"
+            sudo ln -sf "$(realpath "$SERVICE_FILE")" "/etc/systemd/system/$SERVICE_NAME.service"
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✓${NC} Symbolic link created${NC}"
+            else
+                echo -e "${RED}✗${NC} Failed to create symbolic link${NC}"
+                exit 1
+            fi
+            ;;
+        2)
+            echo -e "${YELLOW}Copying file to systemd directory...${NC}"
+            sudo cp "$SERVICE_FILE" "/etc/systemd/system/"
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✓${NC} File copied successfully${NC}"
+            else
+                echo -e "${RED}✗${NC} Failed to copy file${NC}"
+                exit 1
+            fi
+            ;;
+        3)
+            echo -e "${YELLOW}Skipping installation. Service file saved at: $SERVICE_FILE${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Invalid option. Exiting.${NC}"
+            exit 1
+            ;;
+    esac
+    
+    # Ask if systemd reload is needed
+    echo ""
+    if prompt_yes_no "Reload systemd to apply changes?" "y"; then
+        echo -e "${YELLOW}Reloading systemd...${NC}"
+        sudo systemctl daemon-reload
+        echo -e "${GREEN}✓${NC} Systemd reloaded${NC}"
+    fi
+    
+    # Ask to enable and start the service
+    echo ""
+    if prompt_yes_no "Enable service to start at boot?" "y"; then
+        sudo systemctl enable "$SERVICE_NAME.service"
+        echo -e "${GREEN}✓${NC} Service enabled${NC}"
+    fi
+    
+    if prompt_yes_no "Start service now?" "y"; then
+        sudo systemctl start "$SERVICE_NAME.service"
+        echo -e "${GREEN}✓${NC} Service started${NC}"
+        
+        # Show status
+        echo ""
+        echo -e "${YELLOW}Service status:${NC}"
+        sudo systemctl status "$SERVICE_NAME.service" --no-pager
+    fi
+else
+    echo ""
+    echo -e "${YELLOW}No sudo access. Skipping systemd installation.${NC}"
+    echo -e "To install manually:"
+    echo "  sudo cp $SERVICE_FILE /etc/systemd/system/"
+    echo "  OR"
+    echo "  sudo ln -sf $(realpath "$SERVICE_FILE") /etc/systemd/system/$SERVICE_NAME.service"
+    echo "  sudo systemctl daemon-reload"
+    echo "  sudo systemctl enable $SERVICE_NAME"
+    echo "  sudo systemctl start $SERVICE_NAME"
+fi
+
+echo ""
+echo -e "${GREEN}✓${NC} Service setup complete!${NC}"
+echo ""
+echo -e ${YELLOW}Useful commands:${NC}"
+echo "  sudo systemctl status $SERVICE_NAME    # Check status"
+echo "  sudo systemctl restart $SERVICE_NAME   # Restart"
+echo "  sudo systemctl stop $SERVICE_NAME      # Stop"
+echo "  sudo journalctl -u $SERVICE_NAME -f    # View logs"
+
+# If stop command was provided, show note
+if [ -n "$STOP_COMMAND" ]; then
+    echo "  Custom stop command will be used: $STOP_COMMAND"
+fi
+
+# If screen is being used, show screen note
+if [ "$USE_SCREEN" = true ]; then
+    echo ""
+    echo -e "${YELLOW}Screen session information:${NC}"
+    echo "  Session name: $SCREEN_NAME"
+    echo "  To attach:    screen -r $SCREEN_NAME"
+    echo "  To detach:    Ctrl+A then D"
+    echo "  To list:      screen -ls"
+fi

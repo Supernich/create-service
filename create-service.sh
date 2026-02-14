@@ -170,26 +170,25 @@ replace_placeholders() {
     sed -i "s|__GROUPNAME__|$groupname|g" "$output_file"
     sed -i "s|__RESTART_POLICY__|$restart_policy|g" "$output_file"
     
-    # Handle security options (need to escape newlines for sed)
-    if [ -n "$security_options" ]; then
-        # Escape newlines and special characters for sed
-        local escaped_opts=$(printf '%s\n' "$security_options" | sed 's:[[/.*$^]:\\&:g' | sed ':a;N;$!ba;s/\n/\\n/g')
-        sed -i "s|__SECURITY_OPTIONS__|$escaped_opts|g" "$output_file"
-    else
-        # If no security options, just remove the placeholder
-        sed -i "/__SECURITY_OPTIONS__/d" "$output_file"
-    fi
-    
-    # Escape slashes in commands for sed
-    local escaped_start=$(printf '%s\n' "$start_command" | sed 's/[[\.*^$()+?{|]/\\&/g')
+    # Escape and insert start command
+    local escaped_start=$(printf '%s\n' "$start_command" | sed -e 's/[\/&]/\\&/g' -e 's/"/\\"/g')
     sed -i "s|__START_COMMAND__|$escaped_start|g" "$output_file"
     
     # Handle stop command
     if [ -n "$stop_command" ]; then
-        local escaped_stop=$(printf '%s\n' "$stop_command" | sed 's/[[\.*^$()+?{|]/\\&/g')
+        local escaped_stop=$(printf '%s\n' "$stop_command" | sed -e 's/[\/&]/\\&/g' -e 's/"/\\"/g')
         sed -i "s|__STOP_COMMAND_LINE__|ExecStop=$escaped_stop|g" "$output_file"
     else
         sed -i "s|__STOP_COMMAND_LINE__||g" "$output_file"
+    fi
+    
+    # Handle security options LAST (they contain only simple key=value lines)
+    if [ -n "$security_options" ]; then
+        # Simple escape for security options (they shouldn't have complex chars)
+        local escaped_opts=$(printf '%s\n' "$security_options" | sed 's/[\/&]/\\&/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+        sed -i "s|__SECURITY_OPTIONS__|$escaped_opts|g" "$output_file"
+    else
+        sed -i "/__SECURITY_OPTIONS__/d" "$output_file"
     fi
 }
 
@@ -325,7 +324,7 @@ if [ "$USE_SCREEN" = true ]; then
     # For stop command, offer screen-friendly option
     echo ""
     if prompt_yes_no "Use screen-friendly stop command (recommended)?" "y"; then
-        BASE_STOP_COMMAND=$(prompt "Base command" "")
+        BASE_STOP_COMMAND=$(prompt "Base stop command" "")
         STOP_COMMAND=$("/usr/bin/screen -p 0 -S $SCREEN_NAME -X eval 'stuff \"$BASE_STOP_COMMAND\015\"'")
         echo -e "${GREEN}✓${NC} Using screen stop command: $STOP_COMMAND${NC}"
     else

@@ -270,10 +270,10 @@ while true; do
     read -p "Choose policy [1-4] (1): " choice
     choice=${choice:-1}
     case $choice in
-        1) RESTART_POLICY="on-failure"; return;;
-        2) RESTART_POLICY="always"; return;;
-        3) RESTART_POLICY="no"; return;;
-        4) RESTART_POLICY="on-abnormal"; return;;
+        1) RESTART_POLICY="on-failure";;
+        2) RESTART_POLICY="always";;
+        3) RESTART_POLICY="no";;
+        4) RESTART_POLICY="on-abnormal";;
         *) echo "Please enter 1, 2, 3, or 4";;
     esac
 done

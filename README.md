@@ -20,13 +20,13 @@ This script simplifies the process of creating systemd service files by providin
 Download and run the script directly from GitHub:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Supernich/create-service/main/create-service.sh | bash
+bash <(curl -sSL "https://raw.githubusercontent.com/Supernich/create-service/main/create-service.sh")
 ```
 
 Or with wget:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/Supernich/create-service/main/create-service.sh | bash
+bash <(wget -qO- "https://raw.githubusercontent.com/Supernich/create-service/main/create-service.sh")
 ```
 
 ### Manual Download

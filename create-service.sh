@@ -30,10 +30,23 @@ prompt() {
     
     if [ -n "$default_value" ]; then
         read -p "$prompt_text [$default_value]: " input
-        echo "${input:-$default_value}"
+        # If empty input, use default
+        if [ -z "$input" ]; then
+            echo "$default_value"
+        else
+            echo "$input"
+        fi
     else
-        read -p "$prompt_text: " input
-        echo "$input"
+        # No default - require non-empty input
+        while true; do
+            read -p "$prompt_text: " input
+            if [ -n "$input" ]; then
+                echo "$input"
+                break
+            else
+                echo "Error: Value cannot be empty. Please provide a value." >&2
+            fi
+        done
     fi
 }
 
@@ -44,12 +57,24 @@ prompt_yes_no() {
     local input
     
     while true; do
-        read -p "$prompt_text [y/n] ($default_value): " input
-        input=${input:-$default_value}
-        case $input in
-            [Yy]* ) return 0;;
-            [Nn]* ) return 1;;
-            * ) echo "Please answer yes or no.";;
+        if [ "$default_value" = "y" ]; then
+            read -p "$prompt_text [Y/n]: " input
+        else
+            read -p "$prompt_text [y/N]: " input
+        fi
+        
+        if [ -z "$input" ]; then
+            if [ "$default_value" = "y" ]; then
+                return 0
+            else
+                return 1
+            fi
+        fi
+        
+        case ${input,,} in
+            y|yes) return 0 ;;
+            n|no) return 1 ;;
+            *) echo "Please answer yes or no" ;;
         esac
     done
 }

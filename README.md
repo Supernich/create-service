@@ -86,7 +86,7 @@ Example screen workflow:
 /usr/bin/screen -p 0 -S gmod -X eval 'stuff "quit\015"'
 ```
 
-### 6. Installation
+### 5. Installation
 - **Create symbolic link?** - Links service file to /etc/systemd/system/
 
 - **Reload systemd?** - Applies changes immediately

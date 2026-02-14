@@ -471,7 +471,7 @@ if [ "$HAS_SUDO" = true ]; then
         # Show status
         echo ""
         echo -e "${YELLOW}Service status:${NC}"
-        sudo systemctl status "$SERVICE_NAME.service" --no-pager
+        sudo systemctl status "$SERVICE_NAME.service" --no-pager || true
     fi
 else
     echo ""
